@@ -1,0 +1,210 @@
+---
+title: "PC4 ALMAC SANGRE"
+format: html
+editor: visual
+---
+
+# Instalamos y cargamos el paquete y el dataset:
+
+-   **Qué se hará**: Se instalarán y cargarán paquetes de R como mice para la imputación, ggmice para visualización y tidyverse para manipulación de datos.
+
+<!-- -->
+
+-   **Cómo**: Utilizando comandos como install.packages() y library() en R.
+
+<!-- -->
+
+-   **Propósito**: Preparar el entorno con las herramientas necesarias para manejar datos faltantes y procesar el conjunto de datos de manera eficiente.
+
+```{r}
+# Instalar paquetes (descomentar si es necesario)
+# install.packages("mice")
+# install.packages("ggmice")
+# install.packages("tidyverse")
+# install.packages("gtsummary")
+
+# Cargar paquetes
+library(mice)
+library(ggmice)
+library(tidyverse)
+library(gtsummary)
+
+# cargar el dataset
+data <- read_csv("C:/Users/Franco Rodrigo/Desktop/DATA/almac_sangre.csv")
+```
+
+# Verificar la estructura del dataset: 
+
+```{r}
+# Estructura y nombres
+str(data)
+names(data)
+summary(data)
+```
+
+# Identificar los valores faltantes y su proporción:
+
+-   **Qué se hará**: Se contarán los valores faltantes por variable usando colSums(is.na()) y se calculará su proporción.
+
+<!-- -->
+
+-   **Cómo**: Aplicando funciones que resumen la cantidad de datos ausentes en el dataset.
+
+<!-- -->
+
+-   **Propósito**: Cuantificar el alcance del problema (e.g., 9 faltantes en Volumen_prostata) para decidir cómo proceder con la imputación.
+
+```{r}
+# 3. Identificar valores faltantes y su proporción
+missing_counts <- colSums(is.na(data))
+print("Número de valores faltantes por variable:")
+print(missing_counts)
+```
+
+# Proporción de valores faltantes: 
+
+```{r}
+# Proporción de valores faltantes
+missing_prop <- missing_counts / nrow(data)
+print("Proporción de valores faltantes por variable:")
+print(missing_prop)
+```
+
+# Visualizar los patrones de datos faltantes: 
+
+-   **Qué se hará**: Se generará un mapa de calor de los patrones de missingness con ggmice::plot_pattern().
+
+<!-- -->
+
+-   **Cómo**: Usando herramientas de visualización para mostrar dónde y cómo se distribuyen los valores faltantes.
+
+<!-- -->
+
+-   **Propósito**: Determinar si los datos faltantes son aleatorios o tienen un patrón, lo que guía la estrategia de imputación.
+
+```{r}
+# 4. Visualizar los patrones de datos faltantes
+plot_pattern(data)
+```
+
+# Preparar el conjunto de datos para la imputación:
+
+-   **Qué se hará**: Se convertirán variables categóricas como Grupo_edad_GR o Estadio_T en factores.
+
+<!-- -->
+
+-   **Cómo**: Usando as.factor() para ajustar el formato de las variables antes de la imputación.
+
+<!-- -->
+
+-   **Propósito**: Asegurar que MICE trate correctamente tanto datos numéricos como categóricos durante el proceso.
+
+```{r}
+# 5. Preparar el conjunto de datos para la imputación
+# Convertir variables categóricas a factores
+data <- data %>%
+  mutate(
+    Grupo_edad_GR = as.factor(Grupo_edad_GR),
+    Raza_afroamericana = as.factor(Raza_afroamericana),
+    Historia_familiar = as.factor(Historia_familiar),
+    Volumen_tumoral = as.factor(Volumen_tumoral),
+    Estadio_T = as.factor(Estadio_T),
+    Gleason_biopsia = as.factor(Gleason_biopsia),
+    Confinamiento_organo = as.factor(Confinamiento_organo),
+    Terapia_previa = as.factor(Terapia_previa),
+    Gleason_quirurgico = as.factor(Gleason_quirurgico),
+    Terapia_adyuvante = as.factor(Terapia_adyuvante),
+    Radioterapia_adyuvante = as.factor(Radioterapia_adyuvante),
+    Recurrencia_bioquimica = as.factor(Recurrencia_bioquimica),
+    Censor = as.factor(Censor),
+    BN_positivo = as.factor(BN_positivo)
+  )
+```
+
+# Realizar la imputación múltiple con MICE
+
+-   **Qué se hará**: Se imputarán los valores faltantes con la función mice(), usando métodos como "pmm" para numéricos y "logreg" para categóricos.
+
+<!-- -->
+
+-   **Cómo**: Configurando el modelo para generar múltiples imputaciones (e.g., 20 datasets) basadas en relaciones entre variables.
+
+<!-- -->
+
+-   **Propósito**: Reemplazar datos ausentes con estimaciones plausibles, manteniendo la variabilidad natural del conjunto.
+
+```{r}
+# 6. Realizar la imputación múltiple con MICE
+# Definir métodos de imputación para cada variable con valores faltantes
+# Numéricas: pmm (predictive mean matching), Categóricas: logreg (regresión logística)
+meth <- make.method(data)
+meth["Volumen_prostata"] <- "pmm"
+meth["PSA_preoperatorio"] <- "pmm"
+meth["Tiempo_hasta_recurrencia"] <- "pmm"
+meth["Estadio_T"] <- "logreg"
+meth["Gleason_biopsia"] <- "logreg"
+```
+
+# Ejecutar la imputación
+
+```{r}
+# Ejecutar la imputación
+imp <- mice(data, m = 20, method = meth, seed = 123, printFlag = FALSE)
+```
+
+# Analizamos los datos imputados: 
+
+-   **Qué se hará**: Se visualizarán los valores imputados (e.g., para Volumen_prostata) y se creará un dataset completo.
+
+<!-- -->
+
+-   **Cómo**: Usando gráficos de mice para verificar la coherencia y combinando resultados en un archivo final.
+
+<!-- -->
+
+-   **Propósito**: Confirmar que las imputaciones sean realistas y útiles para análisis posteriores.
+
+```{r}
+# 7. Analizar los datos imputados
+# Visualizar valores imputados para variables numéricas
+plot(imp, "Volumen_prostata")
+plot(imp, "PSA_preoperatorio")
+plot(imp, "Tiempo_hasta_recurrencia")
+```
+
+# Resumen de las imputaciones: 
+
+-   **Qué se hará**: Se realizarán análisis estadísticos (e.g., regresión) en los datasets imputados, combinando resultados.
+
+<!-- -->
+
+-   **Cómo**: Aplicando modelos y usando funciones como pool() para integrar las múltiples imputaciones.
+
+<!-- -->
+
+-   **Propósito**: Obtener conclusiones válidas y robustas, considerando la incertidumbre de la imputación.
+
+```{r}
+# Resumen de las imputaciones
+summary(imp)
+```
+
+# Conclusión: 
+
+Los datos faltantes son un desafío frecuente en la investigación, y su manejo inadecuado puede generar resultados sesgados. El paquete **MICE** (Multivariate Imputation by Chained Equations) en R ofrece una solución robusta mediante la imputación múltiple, que reemplaza los valores ausentes con estimaciones plausibles mientras preserva la variabilidad de los datos.
+
+***El proceso consta de varios pasos clave:***
+
+1.  **Instalación y Carga de Paquetes**: Se instalan y cargan herramientas esenciales como mice, ggmice y tidyverse para gestionar la imputación, visualización y manipulación de datos.
+
+2.  **Exploración de Datos**: Es fundamental comprender la estructura del conjunto de datos y sus estadísticas descriptivas para identificar las variables con valores faltantes y evaluar su impacto.
+
+3.  **Identificación de Valores Faltantes**: Funciones como colSums(is.na()) cuantifican los datos ausentes, y herramientas como ggmice::plot_pattern() visualizan patrones para determinar si la falta de datos es aleatoria o sistemática.
+
+4.  **Comparación de Grupos**: Comparar grupos con y sin datos faltantes ayuda a evaluar si la ausencia está relacionada con otras variables, lo que podría introducir sesgos si no se aborda.
+
+5.  **Preparación de Datos**: Convertir variables categóricas en factores asegura que MICE aplique los métodos de imputación correctos (por ejemplo, regresión logística para datos categóricos).
+
+6.  **Imputación con MICE**: Métodos como "pmm" para variables numéricas y "logreg" para categóricas generan múltiples conjuntos de datos imputados (por ejemplo, 20) que reflejan la incertidumbre.
+
+7.  **Análisis de Datos Imputados**: Visualizaciones y resúmenes verifican la plausibilidad de las imputaciones, y los resultados de las múltiples imputaciones se combinan con funciones como pool() para el análisis final.
